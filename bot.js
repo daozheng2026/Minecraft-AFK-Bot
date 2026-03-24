@@ -1,66 +1,74 @@
-const mineflayer = require('mineflayer');
-const config = require('./config.json');
+const bedrock = require('bedrock-protocol');
+const http = require('http');
 
-const bot = mineflayer.createBot({
-  host: config.serverHost,
-  port: config.serverPort,
-  username: config.botUsername,
-  auth: 'offline',
-  version: false,
-  viewDistance: config.botChunk
+const PORT = process.env.PORT || 3000;
+
+// 🌐 防Render休眠（必须）
+http.createServer((req, res) => {
+  res.end('AFK Bot Running');
+}).listen(PORT, () => {
+  console.log('🌐 Web server running');
 });
 
-let movementPhase = 0;
-const STEP_INTERVAL = 1500;
-const STEP_SPEED    = 1;
-const JUMP_DURATION = 500;
+// 🔁 启动Bot函数
+function startBot() {
+  const client = bedrock.createClient({
+    host: '你的服务器IP',
+    port: 19132,
+    username: 'AFK_Bot',
+    offline: true
+  });
 
-bot.on('spawn', () => {
-  setTimeout(() => {
-    bot.setControlState('sneak', true);
-    console.log(`✅ ${config.botUsername} is Ready!`);
-  }, 3000);
+  let pos = { x: 0, y: 100, z: 0 };
+  let yaw = 0;
 
-  setTimeout(movementCycle, STEP_INTERVAL);
-});
+  client.on('join', () => {
+    console.log('✅ 已进入服务器');
 
-function movementCycle() {
-  if (!bot.entity) return;
+    setInterval(() => {
+      // 随机移动
+      pos.x += (Math.random() - 0.5) * 1.5;
+      pos.z += (Math.random() - 0.5) * 1.5;
+      yaw += Math.random() * 10 - 5;
 
-  switch (movementPhase) {
-    case 0:
-      bot.setControlState('forward', true);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', false);
-      break;
-    case 1:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', true);
-      bot.setControlState('jump', false);
-      break;
-    case 2:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', true);
-      setTimeout(() => {
-        bot.setControlState('jump', false);
-      }, JUMP_DURATION);
-      break;
-    case 3:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', false);
-      break;
-  }
+      client.write('move_player', {
+        runtime_id: client.entityId,
+        position: pos,
+        rotation: { x: 0, y: yaw, z: 0 },
+        mode: 0,
+        on_ground: true,
+        ridden_runtime_id: 0,
+        teleport: 0
+      });
 
-  movementPhase = (movementPhase + 1) % 4;
+    }, 2000);
 
-  setTimeout(movementCycle, STEP_INTERVAL);
+    // 💬 防AFK聊天
+    setInterval(() => {
+      client.queue('text', {
+        message: "AFK...",
+        type: "chat",
+        needs_translation: false,
+        source_name: client.username,
+        xuid: "",
+        platform_chat_id: ""
+      });
+    }, 60000);
+  });
+
+  client.on('spawn', (packet) => {
+    pos = packet.position;
+  });
+
+  client.on('disconnect', () => {
+    console.log('⛔️ 掉线，5秒后重连...');
+    setTimeout(startBot, 5000);
+  });
+
+  client.on('error', (err) => {
+    console.log('⚠️ 错误:', err.message);
+  });
 }
 
-bot.on('error', (err) => {
-  console.error('⚠️ Error:', err);
-});
-bot.on('end', () => {
-  console.log('⛔️ Bot Disconnected!');
-});
+// 🚀 启动
+startBot();
