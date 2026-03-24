@@ -1,6 +1,6 @@
 {
-  "serverHost": "121209010367.aternos.me",
-  "serverPort": 35608,
+  "serverHost": "bedrock-server.aternos.me",
+  "serverPort": 60246,
   "botUsername": "MyBot",
   "botChunk": 1
 }
